@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<style>
+		#container {
+			display: flex;
+			width: 80%;
+		}
+		#video {
+			width: 80%;
+		}
+		.cue-container {
+			width: 10%;
+			margin-left: 10px;
+		}
+		.cue-list {
+			height: 80%;
+		}
+		.cue-list .active {
+			background-color: lightblue;
+			transition: 0.3s;
+		}
+		.cue-add {
+			height: 20px;
+			min-width: 100px;
+		}
+		.cue-add > button:disabled {
+			display: none;
+		}
+		</style>
+	</head>
+	<body>
+	<div id="container">
+		<video src="" id="video" controls> <!--  Add type="video/mp4" -->
+		</video>
+		<div class="cue-container cue-container-student">
+			<h4>Student</h4>
+			<div class="cue-list"></div>
+			<div class="cue-add"><button>Add Annotation</button></div>
+		</div>
+		<div class="cue-container cue-container-assessor">
+			<h4>Assessor</h4>
+			<div class="cue-list"></div>
+			<div class="cue-add"><button disabled="disabled">Add Annotation</button></div>
+		</div>
+	</div>
+	<script type="text/javascript">
+	(function () {
+		var $ = document.querySelector.bind(document);
+		var $$ = document.querySelectorAll.bind(document);
+		var video = $('#video');
+		var track;
+		var default_cue_len = 2.9;
+		var default_rewind_on_cue = -2;
+		var cueMgr = function (video, track, container) {
+			this.video = video;
+			this.track = track;
+			this.container = container;
+			track.oncuechange =  this.onCueChange.bind(this); //FIXME
+			//track.addEventListener('oncuechange', this.onCueChange.bind(this), false)
+			this.defaultCueLength = 3;
+			this.cueList = [];
+		}
+		cueMgr.prototype.onCueChange = function (e) {
+			this.updateClass();
+		}
+		cueMgr.prototype.addCue = function (text, startTime, endTime) {
+			startTime *= 1;
+			endTime = endTime || (startTime +  this.defaultCueLength);
+			endTime *= 1;
+			var new_cue = new VTTCue(startTime, endTime, text);
+			for (var i = this.cueList.length - 1; i >= 0; i--)
+			{
+				if (startTime < this.cueList[i].startTime)
+				{
+					break;
+				}
+			}
+			++i;
+			this.cueList.splice(i, 0, new_cue);
+			this.spliceDiv(i);
+			track.addCue(new_cue);
+		}
+		cueMgr.prototype.spliceDiv = function (i)
+		{
+			var div = document.createElement('div');
+			var cue = this.cueList[i];
+			div.innerText = cue.text;
+			if (i == 0)
+			{
+				this.container.prepend(div)
+			}
+			else
+			{
+				this.container.insertBefore(div, this.container.children[i]);
+			}
+		};
+		cueMgr.prototype.init = function () {
+		};
+		cueMgr.prototype.updateClass = function () {
+			var divs = this.container.children;
+			var timeSnap = this.video.currentTime;
+			for (var i in this.cueList)
+			{
+				var div = divs[i];
+				var cue = this.cueList[i];
+				if (cue.startTime <= timeSnap && cue.endTime >= timeSnap)
+				{
+					div.classList.add('active');
+				}
+				else
+				{
+					div.classList.remove('active');
+				}
+			}
+		}
+		video.addEventListener("loadedmetadata", function() {
+			track = this.addTextTrack("captions", "English", "en");
+			track.mode = "showing";
+			var cm = new cueMgr(video, track, $('.cue-container-student > .cue-list'));
+			$$('.cue-add').forEach(button => button.addEventListener('click', function () {
+				video.pause();
+				var text = prompt('Annotation', '');
+				if (text !== null)
+				{
+					cm.addCue(text, video.currentTime);
+					video.currentTime +=  default_rewind_on_cue;
+				}
+				video.play();
+			}));
+			video.focus();
+			var test = {1: 'First comment', 4: 'Second comment', 10: 'Fourth comment', 7: 'Third comment'};
+			for (var startTime in test)
+			{
+				cm.addCue(test[startTime], startTime);
+			}
+			cm.init();
+		});
+		video.setAttribute('src','https://www.html5rocks.com/en/tutorials/track/basics/treeOfLife/video/developerStories-en.webm');
+	})();
+	</script>
+	</body>
+</html>
